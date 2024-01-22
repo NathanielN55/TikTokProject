@@ -1,0 +1,103 @@
+from selenium import webdriver
+import time
+from bs4 import BeautifulSoup
+import requests
+from urllib.request import urlopen
+import pandas as pd
+
+
+
+# Function to get a list of videos from a particular user 
+# when passing in the url to that particular user's page
+def get_user_videos(driver, url):
+    # Open the specified url
+    driver.get(url)
+    # Allow enough time to move past any sign-in page
+    time.sleep(10)
+
+    # Scroll through page
+    scroll_pause_time = 0.5
+    screen_height = driver.execute_script("return window.screen.height;")
+    i = 1
+
+    while True:
+        driver.execute_script("window.scrollTo(0, {screen_height}*{i});".format(screen_height=screen_height, i=i))  
+        i += 1
+        time.sleep(scroll_pause_time)
+        scroll_height = driver.execute_script("return document.body.scrollHeight;")  
+        if (screen_height) * i > scroll_height:
+            time.sleep(20)
+            if (screen_height) * i > scroll_height:
+                break 
+    
+    page = BeautifulSoup(driver.page_source, "html.parser")
+
+    # Find all html tags that contain video links
+    videos = page.find_all("div", {"class": "css-x6y88p-DivItemContainerV2"})
+
+
+    # Print number of videos and all the links to videos
+    for video in videos:
+        print(video.a["href"])
+    print(len(videos))
+    
+    return videos
+
+
+
+# Function to download a video from a video link
+def download_video(url):
+    time.sleep(1)
+
+
+
+# Function to convert video audio to text
+def audio_to_text():
+    # Will deal with this function later
+    
+    return 0
+
+
+
+# Function to scrape and store video page data
+def scrape_video_data(driver, url, df):
+    # Open the video url
+    driver.get(url)
+
+    # Open video page as html
+    video_page = BeautifulSoup(driver.page_source, "html.parser")
+
+    # Access data to put into the dataframe
+    link = url
+    username = video_page.find('span', class_='css-1xccqfx-SpanNickName')
+    user_id = video_page.find('span', class_='css-1c7urt-SpanUniqueId')
+    caption = 0
+    video_text = audio_to_text()
+
+    new_row = {"link":link, "username":username, "user_id":user_id, "caption":caption, "video_text":video_text}
+    df = df._append(new_row, ignore_index = True)
+
+
+
+
+
+# MAIN CODE
+
+# Open the Chrome browser
+driver = webdriver.Chrome()
+
+# Create a pandas dataframe to store data
+data_columns = ["link", "username", "user_id", "caption", "video_text"]
+df = pd.DataFrame(columns=data_columns)
+
+# Get a list of the videos from the user whose videos we are scraping
+# Note: this url is currently just a placeholder; will figure out a way to read in 
+# a list of urls or usernames later
+videos = get_user_videos(driver, "https://www.tiktok.com/@dr.kojosarfo")
+
+
+# For each video in the list of links, get video data
+for video in videos:
+    scrape_video_data(driver,video.a["href"],df)
+
+df.display()
