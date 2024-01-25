@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 import time
 from bs4 import BeautifulSoup
 import requests
@@ -49,9 +50,25 @@ def get_user_videos(driver, url):
 
 
 # Function to download a video from a video link
-def download_video(url):
-    time.sleep(1)
+def download_video(driver, url):
 
+    # Access the text bar to put the download link
+    link_input_bar = driver.find_element(By.XPATH, '//*[@id="url"]')
+    # Put the link into the downloader website
+    link_input_bar.send_keys(url)
+
+    # Access download button (basic download, not HD)
+    download_button = driver.find_element(By.XPATH, '//*[@id="download"]/div/div[2]/a[1]')
+    # Get the download link from the button
+    download_link = download_button.get_attribute('href')
+
+    # Send a GET request to the download link with streaming enabled
+    response = requests.get(download_link, stream=True)
+    response.raise_for_status() # Raise an HTTP error for bad responses
+
+    # Open a file to save the video content
+
+    # Continuing to work on this function
 
 
 # Function to convert video audio to text
@@ -63,9 +80,11 @@ def audio_to_text():
 
 
 # Function to scrape and store video page data
-def scrape_video_data(url, df):
+def scrape_video_data(driver, url, df):
 
     page_request = requests.get(url)
+
+
 
     # Open video page as html
     video_page = BeautifulSoup(page_request.content, "html.parser")
@@ -99,9 +118,11 @@ df = pd.DataFrame(columns=data_columns)
 # a list of urls or usernames later
 videos = get_user_videos(driver, "https://www.tiktok.com/@dr.kojosarfo")
 
+# Switch the web driver page to the tiktok downloader
+driver.get('https://snaptik.app/')
 
 # For each video in the list of links, get video data
 for video in videos:
-    scrape_video_data(video.a["href"],df)
+    scrape_video_data(driver, video.a["href"],df)
 
 print(df)
