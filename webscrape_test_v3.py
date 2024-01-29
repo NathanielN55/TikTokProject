@@ -14,7 +14,19 @@ def get_user_videos(driver, url):
     # Open the specified url
     driver.get(url)
     # Allow enough time to move past any sign-in page
-    time.sleep(15)
+    time.sleep(10)
+
+    '''
+    continue_button = 0
+    if (driver.find_element(By.CLASS_NAME, 'css-u3m0da-DivBoxContainer')):
+        continue_button = driver.find_element(By.CLASS_NAME, 'css-u3m0da-DivBoxContainer')
+    elif (driver.find_element(By.CLASS_NAME, 'css-1cp64nz-DivTextContainer')):
+        continue_button = driver.find_element(By.CLASS_NAME, 'css-1cp64nz-DivTextContainer')
+    continue_button.click()
+    time.sleep(5)
+    refresh_button = driver.find_element(By.CLASS_NAME, 'css-z9i4la-Button-StyledButton')
+    refresh_button.click()'''
+
 
     # Scroll through page
     # Temporarily commented out to limit number of videos to run through
@@ -50,25 +62,38 @@ def get_user_videos(driver, url):
 
 
 # Function to download a video from a video link
-def download_video(driver, url):
+def download_video(driver, url, id):
+    # Switch the web driver page to the tiktok downloader
+    driver.get('https://ssstik.io/en')
 
     # Access the text bar to put the download link
-    link_input_bar = driver.find_element(By.XPATH, '//*[@id="url"]')
+    link_input_bar = driver.find_element(By.ID, 'main_page_text')
     # Put the link into the downloader website
     link_input_bar.send_keys(url)
 
+    download_button = download_button = driver.find_element(By.ID, 'submit')
+    download_button.click()
+    time.sleep(8)
+
     # Access download button (basic download, not HD)
-    download_button = driver.find_element(By.XPATH, '//*[@id="download"]/div/div[2]/a[1]')
+    download_button = driver.find_element(By.LINK_TEXT, 'Without watermark')
     # Get the download link from the button
     download_link = download_button.get_attribute('href')
 
     # Send a GET request to the download link with streaming enabled
-    response = requests.get(download_link, stream=True)
-    response.raise_for_status() # Raise an HTTP error for bad responses
+    #response = requests.get(download_link, stream=True)
+    #response.raise_for_status() # Raise an HTTP error for bad responses
 
     # Open a file to save the video content
-
-    # Continuing to work on this function
+    mp4file = urlopen(download_link)
+    with open(f"videos/{id}.mp4", "wb") as output:
+        while True:
+            data = mp4file.read(4096)
+            if data:
+                output.write(data)
+            else:
+                break
+    
 
 
 # Function to convert video audio to text
@@ -80,11 +105,12 @@ def audio_to_text():
 
 
 # Function to scrape and store video page data
-def scrape_video_data(driver, url, df):
+def scrape_video_data(driver, url,id, df):
 
     page_request = requests.get(url)
 
-
+    # Download the video
+    download_video(driver, url, id)
 
     # Open video page as html
     video_page = BeautifulSoup(page_request.content, "html.parser")
@@ -118,11 +144,10 @@ df = pd.DataFrame(columns=data_columns)
 # a list of urls or usernames later
 videos = get_user_videos(driver, "https://www.tiktok.com/@dr.kojosarfo")
 
-# Switch the web driver page to the tiktok downloader
-driver.get('https://snaptik.app/')
+
 
 # For each video in the list of links, get video data
 for video in videos:
-    scrape_video_data(driver, video.a["href"],df)
+    scrape_video_data(driver, video.a["href"], videos.index(video),df)
 
 print(df)
