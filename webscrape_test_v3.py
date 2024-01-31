@@ -3,8 +3,10 @@ from selenium.webdriver.common.by import By
 import time
 from bs4 import BeautifulSoup
 import requests
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 import pandas as pd
+import moviepy.editor
+import speech_recognition as sr
 
 
 
@@ -16,22 +18,11 @@ def get_user_videos(driver, url):
     # Allow enough time to move past any sign-in page
     time.sleep(10)
 
-    '''
-    continue_button = 0
-    if (driver.find_element(By.CLASS_NAME, 'css-u3m0da-DivBoxContainer')):
-        continue_button = driver.find_element(By.CLASS_NAME, 'css-u3m0da-DivBoxContainer')
-    elif (driver.find_element(By.CLASS_NAME, 'css-1cp64nz-DivTextContainer')):
-        continue_button = driver.find_element(By.CLASS_NAME, 'css-1cp64nz-DivTextContainer')
-    continue_button.click()
-    time.sleep(5)
-    refresh_button = driver.find_element(By.CLASS_NAME, 'css-z9i4la-Button-StyledButton')
-    refresh_button.click()'''
-
 
     # Scroll through page
     # Temporarily commented out to limit number of videos to run through
     ''' 
-    scroll_pause_time = 0.5
+    scroll_pause_time = 0.25
     screen_height = driver.execute_script("return window.screen.height;")
     i = 1
 
@@ -85,8 +76,9 @@ def download_video(driver, url, id):
     #response.raise_for_status() # Raise an HTTP error for bad responses
 
     # Open a file to save the video content
+    print(f"Downloading video_{id}...")
     mp4file = urlopen(download_link)
-    with open(f"videos/{id}.mp4", "wb") as output:
+    with open(f"videos/video_{id}.mp4", "wb") as output:
         while True:
             data = mp4file.read(4096)
             if data:
@@ -97,15 +89,38 @@ def download_video(driver, url, id):
 
 
 # Function to convert video audio to text
-def audio_to_text():
-    # Will deal with this function later
-    
-    return 0
+def vid_audio_to_text(id):
+
+    # Open the video file with moviepy
+    video = moviepy.editor.VideoFileClip(f'videos/video_{id}.mp4')
+
+    print(f"Extracting audio from video_{id}...")
+    # Extract the audio from the video as a .wav file
+    video.audio.write_audiofile(f'audio/audio_{id}.wav')
+
+
+    # Create an instance of a speech recognizer class
+    r = sr.Recognizer()
+
+    # Record the audio file so that the speech recognizer can process it
+    with sr.AudioFile(f'audio/audio_{id}.wav') as source:
+        r.adjust_for_ambient_noise(source, duration=0.5)
+        audio = r.record(source)
+
+    print(f"Extracting text from audio_{id}...")
+    text = "no text"
+    try: 
+        text = r.recognize_google(audio)
+    except Exception as e:
+        print(e)
+
+    print(text + '\n')
+    return text
 
 
 
 # Function to scrape and store video page data
-def scrape_video_data(driver, url,id, df):
+def scrape_video_data(driver, url, id, df):
 
     page_request = requests.get(url)
 
@@ -121,7 +136,7 @@ def scrape_video_data(driver, url,id, df):
     username = video_page.find('span', {'data-e2e':'browse-username'})
     user_id = video_page.find('span', class_='css-1c7urt-SpanUniqueId')
     caption = 0
-    video_text = audio_to_text()
+    video_text = vid_audio_to_text(id)
     date = 0
 
     new_row = {"username":username, "user_id":user_id, "caption":caption, "video_text":video_text, "date":date, "link":link}
@@ -148,6 +163,7 @@ videos = get_user_videos(driver, "https://www.tiktok.com/@dr.kojosarfo")
 
 # For each video in the list of links, get video data
 for video in videos:
-    scrape_video_data(driver, video.a["href"], videos.index(video),df)
+    scrape_video_data(driver, video.a["href"], videos.index(video), df)
 
 print(df)
+df.to_csv("output_data/tiktok_data.csv")
