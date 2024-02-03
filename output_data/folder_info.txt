@@ -1,0 +1,1 @@
+This folder is where the output data of the TikTok webscraper will end up in .csv format.
