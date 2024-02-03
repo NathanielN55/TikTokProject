@@ -7,6 +7,8 @@ from urllib.request import urlopen
 import pandas as pd
 import moviepy.editor
 import speech_recognition as sr
+import googletrans
+from googletrans import *
 
 
 
@@ -89,7 +91,7 @@ def download_video(driver, url, id):
 
 
 # Function to convert video audio to text
-def vid_audio_to_text(id):
+def vid_audio_to_text(id, language="en-US"):
 
     # Open the video file with moviepy
     video = moviepy.editor.VideoFileClip(f'videos/video_{id}.mp4')
@@ -110,7 +112,7 @@ def vid_audio_to_text(id):
     print(f"Extracting text from audio_{id}...")
     text = "no text"
     try: 
-        text = r.recognize_google(audio)
+        text = r.recognize_google(audio, language=language)
     except Exception as e:
         print(e)
 
@@ -120,8 +122,9 @@ def vid_audio_to_text(id):
 
 
 # Function to scrape and store video page data
-def scrape_video_data(driver, url, id, df):
+def scrape_video_data(driver, url, id, df, language="en-US"):
 
+    translator = googletrans.Translator()
     page_request = requests.get(url)
 
     # Download the video
@@ -132,38 +135,61 @@ def scrape_video_data(driver, url, id, df):
     # print(video_page.prettify())
 
     # Access data to put into the dataframe
-    link = url
     username = video_page.find('span', {'data-e2e':'browse-username'})
     user_id = video_page.find('span', class_='css-1c7urt-SpanUniqueId')
     caption = 0
-    video_text = vid_audio_to_text(id)
-    date = 0
+    audio_original = str(vid_audio_to_text(id, language))
+    audio_translated = translator.translate(audio_original).text
+    # src=language[0:2],
+    print(audio_translated)
 
-    new_row = {"username":username, "user_id":user_id, "caption":caption, "video_text":video_text, "date":date, "link":link}
-    #print(new_row)
+    date = 0
+    duration = 0
+    on_screen_text = 0
+    color_dominance = 0
+    facial_presence = 0
+    entropy = 0
+    link = url
+
+    new_row = {"username":username, "user_id":user_id, "caption":caption, "date":date, "audio_original": audio_original, 
+               "audio_translated": audio_translated, "on_screen_text": on_screen_text, "duration": duration, 
+               "color_dominance": color_dominance, "facial_presence": facial_presence, "entropy": entropy, 
+               "video_link":link}
+    # print(new_row)
     df.loc[len(df)] = new_row
 
 
 
 # MAIN CODE
 
+url = "https://www.tiktok.com/@saruza.a?_t=8iHwQWvHoJR&_r=1"
+# language = "en-US"
+# language = "ar-EG"
+language = "pt-BR"
+
 # Open the Chrome browser
 driver = webdriver.Chrome()
 
 # Create a pandas dataframe to store data
-data_columns = ["username", "user_id", "caption", "video_text", "date", "link"]
+data_columns = ["username", "user_id", "caption", "date", "audio_original", "audio_translated"
+               "on_screen_text", "duration", "color_dominance", 
+               "facial_presence", "entropy", "video_link"]
 df = pd.DataFrame(columns=data_columns)
 
 # Get a list of the videos from the user whose videos we are scraping
 # Note: this url is currently just a placeholder; will figure out a way to read in 
 # a list of urls or usernames later
-videos = get_user_videos(driver, "https://www.tiktok.com/@dr.kojosarfo")
+videos = get_user_videos(driver, url)
 
 
 
 # For each video in the list of links, get video data
 for video in videos:
-    scrape_video_data(driver, video.a["href"], videos.index(video), df)
+    # Make sure it is a video link before downloading, rather than a photo link
+    # Otherwise the current download text will not work
+    if video.a["href"][-25:-20] == "video":
+        scrape_video_data(driver, video.a["href"], videos.index(video), df, language=language)
+        df.to_csv("output_data/tiktok_data.csv")
 
 print(df)
 df.to_csv("output_data/tiktok_data.csv")
