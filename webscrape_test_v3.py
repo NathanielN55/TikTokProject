@@ -9,6 +9,9 @@ import moviepy.editor
 import speech_recognition as sr
 import googletrans
 from googletrans import *
+import ffmpeg
+import cv2
+import pathlib
 
 
 
@@ -120,6 +123,48 @@ def vid_audio_to_text(id, language="en-US"):
     return text
 
 
+# Function to detect facial presence in video
+def scan_video_content(id):
+
+    # Get the path to the xml file that holds the info for the face detection training (included in OpenCV)
+    cascade_path = pathlib.Path(cv2.__file__).parent.absolute() / "data/haarcascade_frontalface_default.xml"
+    # Construct the face detection classifier with the accessed xml file
+    clf = cv2.CascadeClassifier(str(cascade_path))
+    # Open a video file with OpenCV
+    video = cv2.VideoCapture(f"videos/video_{id}.mp4")
+
+    facial_presence = 0
+
+    frame_number = 1
+
+    # Read until video is completed
+    while(video.isOpened()):
+        # Capture video frame by frame
+        ret, frame = video.read()
+        print(f"Capturing frame {frame_number}...")
+        # If the video capture detects a frame (i.e. we have not reached the end of the video)
+        if ret == True:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = clf.detectMultiScale(
+                gray,
+                scaleFactor=1.4,
+                minNeighbors=6,
+                flags=cv2.CASCADE_SCALE_IMAGE
+            )
+            #facial_presence += len(faces)
+            if (len(faces) > 0):
+                facial_presence += 1
+
+            # Add to the number of frames in order to calculate facial presence ratio
+            frame_number += 1
+
+        # Break the loop when video is finished
+        else:
+            break
+
+    return facial_presence/frame_number
+
+
 
 # Function to scrape and store video page data
 def scrape_video_data(driver, url, id, df, language="en-US"):
@@ -138,16 +183,15 @@ def scrape_video_data(driver, url, id, df, language="en-US"):
     username = video_page.find('span', {'data-e2e':'browse-username'})
     user_id = video_page.find('span', class_='css-1c7urt-SpanUniqueId')
     caption = 0
-    audio_original = str(vid_audio_to_text(id, language))
+    audio_original = vid_audio_to_text(id, language)
     audio_translated = translator.translate(audio_original).text
-    # src=language[0:2],
     print(audio_translated)
 
     date = 0
-    duration = 0
+    duration = ffmpeg.probe(f"videos/video_{id}.mp4")["streams"]["duration"]
     on_screen_text = 0
     color_dominance = 0
-    facial_presence = 0
+    facial_presence = scan_video_content(id)
     entropy = 0
     link = url
 
